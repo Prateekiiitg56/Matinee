@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matinee — a recommendation system</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,500;1,9..144,600&family=Manrope:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --noir:#0b0b0e;
+    --panel:#151519;
+    --panel2:#1b1b20;
+    --bone:#eae5d8;
+    --fade:#8a8880;
+    --fade-dim:#57564f;
+    --oxblood:#9c3540;
+    --oxblood-dim:#5c1e26;
+    --brass:#a48a54;
+    --brass-dim:#5f4f2f;
+    --hairline:#28282e;
+    --font-display:'Fraunces', serif;
+    --font-body:'Manrope', sans-serif;
+    --font-mono:'Space Mono', monospace;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; overflow-x:hidden; }
+  body{
+    background:var(--noir);
+    color:var(--bone);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+    min-height:100vh;
+  }
+  button{ font-family:inherit; }
+  ::selection{ background:var(--oxblood); color:var(--bone); }
+  :focus-visible{ outline:1.5px solid var(--bone); outline-offset:3px; }
+
+  .wrap{ max-width:1100px; margin:0 auto; padding:0 28px 100px; }
+
+  /* ---------- TOPBAR ---------- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:26px 28px;
+    border-bottom:1px solid var(--hairline);
+  }
+  .wordmark{
+    font-family:var(--font-display);
+    font-style:italic;
+    font-weight:600;
+    font-size:20px;
+    letter-spacing:0.01em;
+  }
+  .toptabs{ display:flex; gap:28px; }
+  .toptabs button{
+    background:none; border:none; cursor:pointer;
+    color:var(--fade);
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    padding:6px 0;
+    border-bottom:1.5px solid transparent;
+    transition:color .2s ease, border-color .2s ease;
+    position:relative;
+  }
+  .toptabs button.active{ color:var(--bone); border-bottom-color:var(--oxblood); }
+  .toptabs button:hover{ color:var(--bone); }
+  .toptabs .badge{
+    display:inline-flex; align-items:center; justify-content:center;
+    background:var(--oxblood); color:var(--bone); font-size:9px;
+    min-width:18px; height:18px; border-radius:99px; padding:0 5px;
+    margin-left:6px; font-family:var(--font-mono); vertical-align:middle;
+  }
+
+  /* ---------- MASTHEAD ---------- */
+  .masthead{ padding:56px 28px 8px; text-align:center; }
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    letter-spacing:0.2em;
+    text-transform:uppercase;
+    color:var(--brass);
+    margin-bottom:16px;
+  }
+  .masthead h1{
+    font-family:var(--font-display);
+    font-style:italic;
+    font-weight:500;
+    font-size:clamp(32px,5vw,52px);
+    margin:0 0 14px;
+    line-height:1.1;
+  }
+  .masthead p{
+    max-width:460px; margin:0 auto; color:var(--fade); font-size:14.5px;
+  }
+
+  section.view{ display:none; opacity:0; }
+  section.view.active{ display:block; animation:fadeUp .4s ease forwards; }
+  @keyframes fadeUp{ from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+  /* ---------- DECK ---------- */
+  .deck-wrap{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:36px 28px 10px;
+  }
+  .deck{
+    position:relative;
+    width:100%;
+    max-width:360px;
+    height:520px;
+  }
+  .poster-card{
+    position:absolute;
+    inset:0;
+    border-radius:18px;
+    overflow:hidden;
+    border:1px solid var(--hairline);
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    padding:26px 24px 28px;
+    cursor:grab;
+    touch-action:none;
+    transition:transform .35s cubic-bezier(.2,.8,.2,1), opacity .35s ease;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.6);
+  }
+  .poster-card.dragging{ transition:none; cursor:grabbing; }
+  .poster-card::after{
+    content:"";
+    position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.75) 100%);
+    pointer-events:none;
+  }
+  .poster-card .genre-pill{
+    position:absolute; top:20px; left:22px;
+    font-family:var(--font-mono);
+    font-size:9.5px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    border:1px solid rgba(234,229,216,0.35);
+    color:var(--bone);
+    padding:5px 10px;
+    border-radius:99px;
+    z-index:2;
+  }
+  .poster-card .stamp{
+    position:absolute; top:26px;
+    font-family:var(--font-mono);
+    font-weight:700;
+    font-size:20px;
+    letter-spacing:0.1em;
+    padding:6px 14px;
+    border:3px solid;
+    border-radius:8px;
+    opacity:0;
+    z-index:3;
+  }
+  .stamp.like{ right:16px; color:var(--oxblood); border-color:var(--oxblood); transform:rotate(-14deg); }
+  .stamp.pass{ left:16px; color:var(--fade); border-color:var(--fade); transform:rotate(14deg); }
+
+  .poster-meta{ position:relative; z-index:2; font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(234,229,216,0.65); margin-bottom:8px;}
+  .poster-title{ position:relative; z-index:2; font-family:var(--font-display); font-style:italic; font-weight:600; font-size:30px; line-height:1.05; margin:0 0 10px; }
+  .poster-blurb{ position:relative; z-index:2; font-size:12.5px; color:rgba(234,229,216,0.75); line-height:1.5; }
+
+  .deck-empty{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:14px; text-align:center; padding:30px;
+    border:1px dashed var(--hairline); border-radius:18px;
+    animation:fadeUp .5s ease forwards;
+  }
+  .deck-empty .big{ font-family:var(--font-display); font-style:italic; font-size:22px; }
+  .deck-empty p{ color:var(--fade); font-size:13px; margin:0; }
+  .deck-empty button{
+    background:var(--oxblood); border:none; color:var(--bone); padding:11px 22px;
+    border-radius:8px; font-size:12.5px; font-weight:700; cursor:pointer; letter-spacing:0.04em;
+    transition:transform .15s ease, background .15s ease;
+  }
+  .deck-empty button:hover{ transform:translateY(-1px); background:#b33d4a; }
+
+  .deck-controls{
+    display:flex; align-items:center; gap:26px; margin-top:26px;
+  }
+  .swipe-btn{
+    width:56px; height:56px; border-radius:50%; border:1px solid var(--hairline);
+    background:var(--panel); color:var(--bone); font-size:20px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:border-color .15s ease, transform .15s ease, background .15s ease;
+  }
+  .swipe-btn:hover{ transform:translateY(-2px); }
+  .swipe-btn:active{ transform:scale(0.92); }
+  .swipe-btn.pass:hover{ border-color:var(--fade); }
+  .swipe-btn.like:hover{ border-color:var(--oxblood); color:var(--oxblood); background:rgba(156,53,64,0.1); }
+  .progress-mini{ font-family:var(--font-mono); font-size:11px; color:var(--fade); min-width:64px; text-align:center; }
+  .hint{ text-align:center; font-family:var(--font-mono); font-size:10.5px; color:var(--fade-dim); margin-top:18px; letter-spacing:0.05em;}
+
+  /* ---------- RESULTS ---------- */
+  .rec-controls{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:18px; margin:8px 0 40px; padding:0 28px;}
+  .mode-tabs{ display:flex; gap:26px; }
+  .mode-tabs button{
+    background:none; border:none; cursor:pointer; padding:6px 0;
+    color:var(--fade); font-size:11px; letter-spacing:0.12em; text-transform:uppercase;
+    border-bottom:1px solid transparent;
+  }
+  .mode-tabs button.active[data-mode="hybrid"]{ color:var(--bone); border-color:var(--bone); }
+  .mode-tabs button.active[data-mode="content"]{ color:var(--oxblood); border-color:var(--oxblood); }
+  .mode-tabs button.active[data-mode="collab"]{ color:var(--brass); border-color:var(--brass); }
+  .mode-tabs button:hover{ color:var(--bone); }
+
+  .blend-control{ display:flex; align-items:center; gap:10px; font-family:var(--font-mono); font-size:10px; color:var(--fade); }
+  .blend-control input[type=range]{
+    -webkit-appearance:none; appearance:none; width:140px; height:4px;
+    background:linear-gradient(to right, var(--oxblood), var(--brass));
+    border-radius:4px; outline:none; cursor:pointer;
+  }
+  .blend-control input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:16px; height:16px; border-radius:50%;
+    background:var(--bone); border:2px solid var(--panel); cursor:pointer;
+    box-shadow:0 0 6px rgba(0,0,0,.4);
+  }
+  .blend-control input[type=range]::-moz-range-thumb{
+    width:16px; height:16px; border-radius:50%; border:2px solid var(--panel);
+    background:var(--bone); cursor:pointer;
+  }
+
+  .edit-feed{ padding:0 28px; display:flex; flex-direction:column; gap:16px; }
+
+  .hero-pick{
+    position:relative; border-radius:18px; overflow:hidden; border:1px solid var(--hairline);
+    min-height:340px; display:flex; align-items:flex-end; padding:34px;
+    animation:heroIn .5s ease forwards;
+  }
+  @keyframes heroIn{ from{opacity:0;transform:scale(0.97)} to{opacity:1;transform:scale(1)} }
+  .hero-pick::after{ content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,0.82) 100%); pointer-events:none; }
+  .hero-pick .content{ position:relative; z-index:2; max-width:560px; }
+  .hero-eyebrow{ font-family:var(--font-mono); font-size:10px; letter-spacing:0.16em; text-transform:uppercase; color:var(--brass); margin-bottom:10px; }
+  .hero-pick h2{ font-family:var(--font-display); font-style:italic; font-weight:600; font-size:40px; margin:0 0 8px; line-height:1.05; }
+  .hero-meta{ font-family:var(--font-mono); font-size:11px; color:rgba(234,229,216,0.6); margin-bottom:14px; }
+  .hero-match{ position:absolute; top:26px; right:26px; z-index:3; font-family:var(--font-mono); font-weight:700; font-size:26px; color:var(--bone); }
+  .hero-match span{ display:block; font-size:9px; letter-spacing:0.1em; color:var(--fade); font-weight:400; text-align:right; }
+  .hero-reason{ margin-top:10px; }
+
+  .list-row{
+    display:flex; gap:18px; align-items:center;
+    border:1px solid var(--hairline); border-radius:14px; padding:16px 18px;
+    background:var(--panel);
+    transition:border-color .2s ease, transform .2s ease;
+    animation:fadeUp .35s ease backwards;
+  }
+  .list-row:hover{ border-color:var(--fade-dim); transform:translateX(4px); }
+  .list-swatch{ width:64px; height:64px; border-radius:10px; flex-shrink:0; }
+  .list-body{ flex:1; min-width:0; }
+  .list-top{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+  .list-title{ font-family:var(--font-display); font-style:italic; font-weight:600; font-size:18px; margin:0; }
+  .list-match{ font-family:var(--font-mono); font-size:13px; color:var(--bone); flex-shrink:0; }
+  .list-meta{ font-family:var(--font-mono); font-size:10px; color:var(--fade); margin:3px 0 8px; text-transform:uppercase; letter-spacing:0.05em;}
+  .reason-line{ display:flex; gap:7px; align-items:flex-start; font-family:var(--font-mono); font-size:11px; line-height:1.5; }
+  .reason-dot{ width:6px; height:6px; border-radius:50%; margin-top:5px; flex-shrink:0; }
+  .reason-dot.content{ background:var(--oxblood); }
+  .reason-dot.collab{ background:var(--brass); }
+  .reason-text.content{ color:#c98a90; }
+  .reason-text.collab{ color:var(--brass); }
+
+  .lock-note{
+    max-width:440px; margin:60px auto; text-align:center; padding:34px 30px;
+    border:1px dashed var(--hairline); border-radius:14px;
+    animation:fadeUp .4s ease forwards;
+  }
+  .lock-note .big{ font-family:var(--font-display); font-style:italic; font-size:22px; margin-bottom:10px; }
+  .lock-note .lock-count{
+    display:inline-block; font-family:var(--font-mono); font-size:28px; font-weight:700;
+    color:var(--oxblood); margin:8px 0 4px;
+  }
+  .lock-note p{ color:var(--fade); font-size:13.5px; margin:0 0 18px; }
+  .lock-note button{
+    background:var(--oxblood); border:none; color:var(--bone); font-weight:700;
+    padding:11px 20px; border-radius:8px; cursor:pointer; font-size:13px;
+    transition:transform .15s ease, background .15s ease;
+  }
+  .lock-note button:hover{ transform:translateY(-1px); background:#b33d4a; }
+
+  details.explainer{
+    max-width:680px; margin:64px auto 0; border:1px solid var(--hairline); border-radius:12px;
+    padding:16px 20px; background:var(--panel);
+  }
+  details.explainer summary{ cursor:pointer; font-weight:700; font-size:12.5px; font-family:var(--font-mono); color:var(--bone); list-style:none; letter-spacing:0.04em; }
+  details.explainer summary::-webkit-details-marker{ display:none; }
+  details.explainer summary::before{ content:"+ "; color:var(--oxblood); }
+  details.explainer[open] summary::before{ content:"– "; }
+  .explainer-body{ margin-top:14px; font-size:13px; color:var(--fade); }
+  .explainer-body p{ margin:0 0 12px; }
+  .explainer-body b{ color:var(--bone); }
+  .tag{ display:inline-block; font-family:var(--font-mono); font-size:10px; padding:2px 7px; border-radius:5px; margin-right:5px; }
+  .tag.content{ background:rgba(156,53,64,0.25); color:#c98a90; }
+  .tag.collab{ background:rgba(164,138,84,0.25); color:var(--brass); }
+
+  footer.note{ text-align:center; color:var(--fade-dim); font-family:var(--font-mono); font-size:10.5px; margin-top:40px; }
+
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+  @media (max-width:640px){
+    .topbar{ padding:20px; }
+    .masthead{ padding:40px 20px 4px; }
+    .wrap{ padding:0 16px 90px; }
+    .rec-controls{ padding:0 16px; flex-direction:column; align-items:flex-start; }
+    .edit-feed{ padding:0 16px; }
+    .hero-pick h2{ font-size:30px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wordmark">Matinee</div>
+  <div class="toptabs">
+    <button id="tab-swipe" class="active">Discover</button>
+    <button id="tab-results">Your Edit<span class="badge" id="rating-badge" style="display:none">0</span></button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <section id="view-swipe" class="view active">
+    <div class="masthead">
+      <div class="eyebrow">movement one — build your taste</div>
+      <h1>What do you respond to?</h1>
+      <p>Swipe right for yes, left for pass. About five is enough to start — more sharpens the picture.</p>
+    </div>
+
+    <div class="deck-wrap">
+      <div class="deck" id="deck"></div>
+      <div class="deck-controls">
+        <button class="swipe-btn pass" id="btn-pass" aria-label="Pass">✕</button>
+        <div class="progress-mini" id="progress-mini">0 / 32</div>
+        <button class="swipe-btn like" id="btn-like" aria-label="Like">♥</button>
+      </div>
+      <div class="hint">drag the card, or use ✕ / ♥ · arrow keys also work</div>
+    </div>
+  </section>
+
+  <section id="view-results" class="view">
+    <div id="results-locked" class="lock-note" style="display:none;">
+      <div class="big">The reel's still loading</div>
+      <div class="lock-count" id="lock-count">0 / 5</div>
+      <p>Rate <span id="lock-remaining">5 more</span> titles in Discover and your edit will take shape here.</p>
+      <button id="go-swipe-btn">Back to Discover</button>
+    </div>
+
+    <div id="results-unlocked" style="display:none;">
+      <div class="masthead" style="padding-top:44px;">
+        <div class="eyebrow">movement two — the edit</div>
+        <h1>Your list, tonight</h1>
+      </div>
+
+      <div class="rec-controls">
+        <div class="mode-tabs">
+          <button data-mode="hybrid" class="active">Hybrid</button>
+          <button data-mode="content">Because you liked</button>
+          <button data-mode="collab">People like you</button>
+        </div>
+        <div class="blend-control" id="blend-control">
+          <span>taste</span>
+          <input type="range" id="blend-slider" min="0" max="100" value="50">
+          <span>kindred</span>
+        </div>
+      </div>
+
+      <div class="edit-feed" id="edit-feed"></div>
+    </div>
+  </section>
+
+  <details class="explainer">
+    <summary>How this actually works</summary>
+    <div class="explainer-body">
+      <p><span class="tag content">content-based</span> Every title is tagged with genres. We build a profile from the genres of what you liked (and quietly subtract what you passed on), then find unseen titles whose genre mix is closest to that profile.</p>
+      <p><span class="tag collab">collaborative</span> A panel of 30 sample viewers has its own ratings across this same catalog. We find the ones whose taste overlaps yours, then surface what they rated highly that you haven't seen.</p>
+      <p><b>Hybrid</b> blends the two. The slider sets the weight — full left is pure content-based, full right is pure collaborative.</p>
+    </div>
+  </details>
+
+  <footer class="note">All ratings live in this browser tab only. Nothing is sent anywhere, nothing is saved when you leave.</footer>
+</div>
+
+<script>
+/* ============================= DATA ============================= */
+const GENRES = ["Drama","Sci-Fi","Comedy","Thriller","Romance","Animation","Horror","Action","Documentary","Fantasy","Mystery","Crime"];
+
+const GENRE_GRADIENT = {
+  "Drama":      "linear-gradient(160deg,#2b2033,#0b0b0e 75%)",
+  "Sci-Fi":     "linear-gradient(160deg,#101f33,#0b0b0e 75%)",
+  "Comedy":     "linear-gradient(160deg,#33280f,#0b0b0e 75%)",
+  "Thriller":   "linear-gradient(160deg,#330f14,#0b0b0e 75%)",
+  "Romance":    "linear-gradient(160deg,#33101f,#0b0b0e 75%)",
+  "Animation":  "linear-gradient(160deg,#0f3328,#0b0b0e 75%)",
+  "Horror":     "linear-gradient(160deg,#1e0808,#0b0b0e 75%)",
+  "Action":     "linear-gradient(160deg,#331c0f,#0b0b0e 75%)",
+  "Documentary":"linear-gradient(160deg,#182210,#0b0b0e 75%)",
+  "Fantasy":    "linear-gradient(160deg,#1c1533,#0b0b0e 75%)",
+  "Mystery":    "linear-gradient(160deg,#161233,#0b0b0e 75%)",
+  "Crime":      "linear-gradient(160deg,#221010,#0b0b0e 75%)"
+};
+
+const MOVIES = [
+  {id:1, title:"Arrival", year:2016, director:"Denis Villeneuve", runtime:116, genres:["Sci-Fi","Drama","Mystery"], blurb:"A linguist is recruited to decode the language of visitors who may be measuring time differently than we do."},
+  {id:2, title:"Parasite", year:2019, director:"Bong Joon-ho", runtime:132, genres:["Thriller","Drama","Comedy"], blurb:"A struggling family infiltrates a wealthy household one job at a time, until the house reveals a secret of its own."},
+  {id:3, title:"The Grand Budapest Hotel", year:2014, director:"Wes Anderson", runtime:99, genres:["Comedy","Crime","Drama"], blurb:"A concierge and his protégé chase a stolen painting across a fictional alpine republic between the wars."},
+  {id:4, title:"Whiplash", year:2014, director:"Damien Chazelle", runtime:107, genres:["Drama","Thriller"], blurb:"A young drummer and a punishing instructor push each other toward greatness or ruin."},
+  {id:5, title:"Get Out", year:2017, director:"Jordan Peele", runtime:104, genres:["Horror","Thriller","Mystery"], blurb:"A weekend meeting the in-laws turns into something far stranger than awkward small talk."},
+  {id:6, title:"Spirited Away", year:2001, director:"Hayao Miyazaki", runtime:125, genres:["Animation","Fantasy","Drama"], blurb:"A girl wandering into a bathhouse for spirits has to work her way back to the world she came from."},
+  {id:7, title:"Mad Max: Fury Road", year:2015, director:"George Miller", runtime:120, genres:["Action","Sci-Fi"], blurb:"A convoy chase across a poisoned desert becomes an argument about who gets to be free."},
+  {id:8, title:"Her", year:2013, director:"Spike Jonze", runtime:126, genres:["Romance","Sci-Fi","Drama"], blurb:"A lonely writer falls for the voice that organizes his life."},
+  {id:9, title:"No Country for Old Men", year:2007, director:"Coen Brothers", runtime:122, genres:["Thriller","Crime","Drama"], blurb:"A hunter finds drug money in the desert and a killer who never quite stops walking."},
+  {id:10, title:"Amélie", year:2001, director:"Jean-Pierre Jeunet", runtime:122, genres:["Romance","Comedy"], blurb:"A shy waitress in Montmartre starts rearranging strangers' lives from the shadows."},
+  {id:11, title:"The Thing", year:1982, director:"John Carpenter", runtime:109, genres:["Horror","Sci-Fi","Mystery"], blurb:"A research station in Antarctica realizes one of them might not be human anymore."},
+  {id:12, title:"Knives Out", year:2019, director:"Rian Johnson", runtime:130, genres:["Mystery","Comedy","Crime"], blurb:"A wealthy novelist's death gathers his entire family into one room, all of them lying."},
+  {id:13, title:"Coco", year:2017, director:"Lee Unkrich", runtime:105, genres:["Animation","Fantasy","Drama"], blurb:"A boy chasing music crosses into the land of the dead to find the truth about his family."},
+  {id:14, title:"Blade Runner 2049", year:2017, director:"Denis Villeneuve", runtime:164, genres:["Sci-Fi","Drama","Mystery"], blurb:"A replicant investigator follows a buried secret that could unravel the line between made and born."},
+  {id:15, title:"The Farewell", year:2019, director:"Lulu Wang", runtime:100, genres:["Drama","Comedy"], blurb:"A family stages a wedding to say goodbye to a grandmother who doesn't know she's dying."},
+  {id:16, title:"Free Solo", year:2018, director:"Chin & Vasarhelyi", runtime:100, genres:["Documentary"], blurb:"A climber prepares to ascend a granite wall with no rope and no margin for error."},
+  {id:17, title:"Eternal Sunshine of the Spotless Mind", year:2004, director:"Michel Gondry", runtime:108, genres:["Romance","Sci-Fi","Drama"], blurb:"A couple erases each other from memory and then falls back into the same collision course."},
+  {id:18, title:"Heat", year:1995, director:"Michael Mann", runtime:170, genres:["Crime","Thriller","Action"], blurb:"A detective and a thief circle each other across a city that can only hold one of them."},
+  {id:19, title:"Portrait of a Lady on Fire", year:2019, director:"Céline Sciamma", runtime:122, genres:["Romance","Drama"], blurb:"A painter commissioned to secretly capture a bride-to-be finds herself seen back."},
+  {id:20, title:"The Shining", year:1980, director:"Stanley Kubrick", runtime:146, genres:["Horror","Drama","Mystery"], blurb:"A family winters alone in a hotel that has opinions about who should stay."},
+  {id:21, title:"Superbad", year:2007, director:"Greg Mottola", runtime:113, genres:["Comedy"], blurb:"Two friends spend one chaotic night trying to buy alcohol before everything between them changes."},
+  {id:22, title:"Inception", year:2010, director:"Christopher Nolan", runtime:148, genres:["Sci-Fi","Action","Thriller"], blurb:"A team plants an idea inside someone's dream, one layer of sleep at a time."},
+  {id:23, title:"Moonlight", year:2016, director:"Barry Jenkins", runtime:111, genres:["Drama"], blurb:"Three chapters follow one boy becoming a man under the weight of what he can't say out loud."},
+  {id:24, title:"The Princess Bride", year:1987, director:"Rob Reiner", runtime:98, genres:["Fantasy","Romance","Comedy"], blurb:"A farmhand turned pirate has to out-fence, out-wit, and out-last everyone standing between him and true love."},
+  {id:25, title:"Zodiac", year:2007, director:"David Fincher", runtime:157, genres:["Crime","Mystery","Thriller"], blurb:"A cartoonist's fixation on an uncaught killer slowly consumes his career and his marriage."},
+  {id:26, title:"Paddington 2", year:2017, director:"Paul King", runtime:103, genres:["Comedy","Fantasy"], blurb:"A bear in a duffel coat ends up in prison, and somehow makes the whole cellblock kinder."},
+  {id:27, title:"Uncut Gems", year:2019, director:"Safdie Brothers", runtime:135, genres:["Thriller","Crime","Drama"], blurb:"A jeweler juggling debts and a once-in-a-lifetime bet cannot stop pushing his luck one hour further."},
+  {id:28, title:"My Neighbor Totoro", year:1988, director:"Hayao Miyazaki", runtime:86, genres:["Animation","Fantasy"], blurb:"Two sisters move to the countryside and meet the enormous, quiet forest spirit next door."},
+  {id:29, title:"Y Tu Mamá También", year:2001, director:"Alfonso Cuarón", runtime:106, genres:["Drama","Comedy","Romance"], blurb:"Two teenage boys and an older woman drive toward a beach that may not exist, and toward things they'd rather not say."},
+  {id:30, title:"The Social Network", year:2010, director:"David Fincher", runtime:120, genres:["Drama","Crime"], blurb:"A dorm-room falling-out becomes the founding myth of a company that reshapes how people talk to each other."},
+  {id:31, title:"Alien", year:1979, director:"Ridley Scott", runtime:117, genres:["Horror","Sci-Fi","Thriller"], blurb:"A cargo crew picks up a signal in deep space that turns their ship into something to survive."},
+  {id:32, title:"La La Land", year:2016, director:"Damien Chazelle", runtime:128, genres:["Romance","Comedy","Drama"], blurb:"A pianist and an actress try to hold onto each other while their ambitions pull in different directions."}
+];
+
+const PERSONAS = [
+  {name:"Sci-fi purist", weights:{"Sci-Fi":0.95,"Mystery":0.5,"Drama":0.35}},
+  {name:"Horror hound", weights:{"Horror":0.95,"Thriller":0.6,"Mystery":0.4}},
+  {name:"Rom-com romantic", weights:{"Romance":0.95,"Comedy":0.55,"Drama":0.3}},
+  {name:"Prestige drama", weights:{"Drama":0.95,"Crime":0.4,"Mystery":0.3}},
+  {name:"Heist & crime", weights:{"Crime":0.95,"Thriller":0.6,"Action":0.4}},
+  {name:"Animation & family", weights:{"Animation":0.95,"Fantasy":0.65,"Comedy":0.3}},
+  {name:"Action junkie", weights:{"Action":0.95,"Sci-Fi":0.5,"Thriller":0.4}},
+  {name:"Comedy lover", weights:{"Comedy":0.95,"Romance":0.3,"Drama":0.2}},
+  {name:"Documentary realist", weights:{"Documentary":0.95,"Drama":0.3}},
+  {name:"Mystery solver", weights:{"Mystery":0.95,"Crime":0.5,"Thriller":0.5}}
+];
+
+/* ============================= ENGINE ============================= */
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const rng = mulberry32(1337);
+const shuffleRng = mulberry32(42);
+
+function genreVector(movie){ return GENRES.map(g => movie.genres.includes(g) ? 1 : 0); }
+
+const SYNTH_USERS = [];
+PERSONAS.forEach(persona => {
+  for (let i = 0; i < 3; i++){
+    const ratings = {};
+    MOVIES.forEach(movie => {
+      if (rng() < 0.55){
+        let affinity = 0;
+        movie.genres.forEach(g => { affinity += (persona.weights[g] || 0.15); });
+        affinity = affinity / movie.genres.length;
+        const base = 1 + affinity * 4;
+        const noise = (rng() - 0.5) * 1.6;
+        const rating = Math.round(Math.min(5, Math.max(1, base + noise)));
+        ratings[movie.id] = rating;
+      }
+    });
+    SYNTH_USERS.push({ persona: persona.name, ratings });
+  }
+});
+
+function cosine(a, b){
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++){ dot += a[i]*b[i]; na += a[i]*a[i]; nb += b[i]*b[i]; }
+  if (na === 0 || nb === 0) return 0;
+  return dot / (Math.sqrt(na) * Math.sqrt(nb));
+}
+
+function buildContentProfile(userRatings){
+  const profile = new Array(GENRES.length).fill(0);
+  Object.entries(userRatings).forEach(([id, rating]) => {
+    const movie = MOVIES.find(m => m.id === Number(id));
+    if (!movie) return;
+    const weight = rating - 3;
+    genreVector(movie).forEach((v, i) => { profile[i] += v * weight; });
+  });
+  return profile;
+}
+
+function contentScore(movie, profile){ return (cosine(profile, genreVector(movie)) + 1) / 2; }
+
+function findNeighbors(userRatings){
+  const ratedIds = Object.keys(userRatings).map(Number);
+  return SYNTH_USERS.map(su => {
+    const shared = ratedIds.filter(id => su.ratings[id] != null);
+    if (shared.length < 2) return { su, sim: 0, shared: shared.length };
+    const a = shared.map(id => userRatings[id]);
+    const b = shared.map(id => su.ratings[id]);
+    return { su, sim: cosine(a, b), shared: shared.length };
+  }).filter(n => n.sim > 0.15).sort((x, y) => y.sim - x.sim).slice(0, 10);
+}
+
+function collabScore(movie, neighbors){
+  let num = 0, den = 0, support = 0;
+  neighbors.forEach(n => {
+    const r = n.su.ratings[movie.id];
+    if (r != null){ num += n.sim * r; den += n.sim; support++; }
+  });
+  if (den === 0) return { score: 0, support: 0 };
+  return { score: (num / den) / 5, support };
+}
+
+function bestContentReasonMovie(movie, userRatings){
+  let best = null, bestScore = -1;
+  Object.entries(userRatings).forEach(([id, rating]) => {
+    if (rating < 4) return;
+    const rated = MOVIES.find(m => m.id === Number(id));
+    if (!rated) return;
+    const overlap = rated.genres.filter(g => movie.genres.includes(g)).length;
+    const score = overlap * 10 + rating;
+    if (overlap > 0 && score > bestScore){ bestScore = score; best = rated; }
+  });
+  return best;
+}
+
+/* ============================= STATE ============================= */
+const userRatings = {};
+let currentMode = 'hybrid';
+let blend = 0.5;
+const UNLOCK_THRESHOLD = 5;
+
+const DECK_ORDER = MOVIES.slice().sort(() => shuffleRng() - 0.5);
+let deckIndex = 0;
+
+/* ============================= DECK RENDER ============================= */
+const deckEl = document.getElementById('deck');
+let dragState = null;
+
+function renderDeck(){
+  deckEl.innerHTML = '';
+  const slice = DECK_ORDER.slice(deckIndex, deckIndex + 3);
+  if (slice.length === 0){
+    deckEl.innerHTML = `<div class="deck-empty">
+      <div class="big">That's the whole reel</div>
+      <p>You've rated every title. Head to Your Edit to see what it adds up to.</p>
+      <button id="deck-done-btn">Go to Your Edit</button>
+    </div>`;
+    document.getElementById('deck-done-btn').addEventListener('click', () => setTopTab('results'));
+    return;
+  }
+  slice.forEach((movie, i) => {
+    const depth = i; // 0 = top
+    const card = document.createElement('div');
+    card.className = 'poster-card';
+    card.style.background = GENRE_GRADIENT[movie.genres[0]];
+    card.style.zIndex = String(10 - depth);
+    card.style.transform = `translateY(${depth*14}px) scale(${1 - depth*0.04})`;
+    card.style.opacity = depth === 2 ? '0.55' : depth === 1 ? '0.85' : '1';
+    card.innerHTML = `
+      <span class="genre-pill">${movie.genres[0]}</span>
+      <span class="stamp like">LIKE</span>
+      <span class="stamp pass">PASS</span>
+      <div class="poster-meta">${movie.director} · ${movie.year} · ${movie.runtime} min</div>
+      <h2 class="poster-title">${movie.title}</h2>
+      <p class="poster-blurb">${movie.blurb}</p>
+    `;
+    deckEl.appendChild(card);
+    if (depth === 0) attachDrag(card, movie);
+  });
+}
+
+function attachDrag(card, movie){
+  card.addEventListener('pointerdown', (e) => {
+    card.setPointerCapture(e.pointerId);
+    dragState = { startX: e.clientX, dx: 0 };
+    card.classList.add('dragging');
+  });
+  card.addEventListener('pointermove', (e) => {
+    if (!dragState) return;
+    dragState.dx = e.clientX - dragState.startX;
+    const rot = dragState.dx / 18;
+    card.style.transform = `translateX(${dragState.dx}px) rotate(${rot}deg)`;
+    const likeStamp = card.querySelector('.stamp.like');
+    const passStamp = card.querySelector('.stamp.pass');
+    likeStamp.style.opacity = Math.max(0, Math.min(1, dragState.dx / 100));
+    passStamp.style.opacity = Math.max(0, Math.min(1, -dragState.dx / 100));
+  });
+  const release = () => {
+    if (!dragState) return;
+    card.classList.remove('dragging');
+    const dx = dragState.dx;
+    dragState = null;
+    if (dx > 100){ flyOut(card, 1, () => commitSwipe('like', movie)); }
+    else if (dx < -100){ flyOut(card, -1, () => commitSwipe('pass', movie)); }
+    else { card.style.transform = 'translateX(0) rotate(0)'; card.querySelectorAll('.stamp').forEach(s => s.style.opacity = 0); }
+  };
+  card.addEventListener('pointerup', release);
+  card.addEventListener('pointercancel', release);
+}
+
+function flyOut(card, dir, cb){
+  card.style.transition = 'transform .4s ease, opacity .4s ease';
+  card.style.transform = `translateX(${dir*600}px) rotate(${dir*30}deg)`;
+  card.style.opacity = '0';
+  setTimeout(cb, 220);
+}
+
+function commitSwipe(direction, movie){
+  if (deckIndex >= DECK_ORDER.length || DECK_ORDER[deckIndex].id !== movie.id) return;
+  userRatings[movie.id] = direction === 'like' ? 4 : 2;
+  deckIndex++;
+  updateProgress();
+  renderDeck();
+}
+
+function programmaticSwipe(direction){
+  const topCard = deckEl.querySelector('.poster-card');
+  const movie = DECK_ORDER[deckIndex];
+  if (!topCard || !movie) return;
+  flyOut(topCard, direction === 'like' ? 1 : -1, () => commitSwipe(direction, movie));
+}
+
+document.getElementById('btn-like').addEventListener('click', () => programmaticSwipe('like'));
+document.getElementById('btn-pass').addEventListener('click', () => programmaticSwipe('pass'));
+document.addEventListener('keydown', (e) => {
+  if (!document.getElementById('view-swipe').classList.contains('active')) return;
+  if (e.key === 'ArrowRight') programmaticSwipe('like');
+  if (e.key === 'ArrowLeft') programmaticSwipe('pass');
+});
+
+/* ============================= PROGRESS ============================= */
+function updateProgress(){
+  const count = Object.keys(userRatings).length;
+  document.getElementById('progress-mini').textContent = `${count} / ${MOVIES.length}`;
+  const badge = document.getElementById('rating-badge');
+  if (count > 0){ badge.style.display = 'inline-flex'; badge.textContent = count; }
+  else { badge.style.display = 'none'; }
+  syncResultsLock();
+}
+
+/* ============================= RESULTS ============================= */
+function syncResultsLock(){
+  const count = Object.keys(userRatings).length;
+  const locked = count < UNLOCK_THRESHOLD;
+  document.getElementById('results-locked').style.display = locked ? 'block' : 'none';
+  document.getElementById('results-unlocked').style.display = locked ? 'none' : 'block';
+  if (locked){
+    document.getElementById('lock-count').textContent = `${count} / ${UNLOCK_THRESHOLD}`;
+    const rem = UNLOCK_THRESHOLD - count;
+    document.getElementById('lock-remaining').textContent = rem === 1 ? '1 more' : `${rem} more`;
+  }
+}
+
+function reasonLine(kind, text){
+  return `<div class="reason-line"><span class="reason-dot ${kind}"></span><span class="reason-text ${kind}">${text}</span></div>`;
+}
+
+function renderResults(){
+  const count = Object.keys(userRatings).length;
+  if (count < UNLOCK_THRESHOLD) return;
+
+  const profile = buildContentProfile(userRatings);
+  const neighbors = findNeighbors(userRatings);
+  const ratedIds = new Set(Object.keys(userRatings).map(Number));
+
+  let candidates = MOVIES.filter(m => !ratedIds.has(m.id)).map(m => {
+    const cScore = contentScore(m, profile);
+    const { score: colScore, support } = collabScore(m, neighbors);
+    return { movie: m, cScore, colScore, support };
+  });
+
+  let sorted;
+  if (currentMode === 'content'){
+    sorted = candidates.slice().sort((a, b) => b.cScore - a.cScore);
+  } else if (currentMode === 'collab'){
+    sorted = candidates.filter(c => c.support > 0).sort((a, b) => b.colScore - a.colScore);
+  } else {
+    sorted = candidates.map(c => {
+      const contentWeight = 1 - blend;
+      const collabWeight = blend;
+      const effContentW = c.support > 0 ? contentWeight : 1;
+      const effCollabW = c.support > 0 ? collabWeight : 0;
+      return Object.assign({}, c, { hybrid: effContentW * c.cScore + effCollabW * c.colScore });
+    }).sort((a, b) => b.hybrid - a.hybrid);
+  }
+  sorted = sorted.slice(0, 8);
+
+  const feed = document.getElementById('edit-feed');
+  if (sorted.length === 0){
+    feed.innerHTML = `<div class="lock-note"><div class="big">No kindred viewers yet</div><p>Rate a few more titles — the panel needs overlap with your taste to work with.</p></div>`;
+    return;
+  }
+
+  function scoreAndReasons(c){
+    let pct, reasons = [];
+    if (currentMode === 'content'){
+      pct = Math.round(c.cScore * 100);
+      const src = bestContentReasonMovie(c.movie, userRatings);
+      reasons.push(reasonLine('content', src ? `Because you liked <b>${src.title}</b>` : `Matches the genres you respond to`));
+    } else if (currentMode === 'collab'){
+      pct = Math.round(c.colScore * 100);
+      const strong = neighbors.filter(n => n.sim > 0.3 && n.su.ratings[c.movie.id] >= 4).length;
+      reasons.push(reasonLine('collab', strong > 0 ? `<b>${strong}</b> kindred viewer${strong>1?'s':''} rated this 4★+` : `Closest match among people like you`));
+    } else {
+      pct = Math.round(c.hybrid * 100);
+      const src = bestContentReasonMovie(c.movie, userRatings);
+      if (src) reasons.push(reasonLine('content', `Because you liked <b>${src.title}</b>`));
+      const strong = neighbors.filter(n => n.sim > 0.3 && n.su.ratings[c.movie.id] >= 4).length;
+      if (strong > 0) reasons.push(reasonLine('collab', `<b>${strong}</b> kindred viewer${strong>1?'s':''} also liked this`));
+      if (reasons.length === 0) reasons.push(reasonLine('content', `Matches the genres you respond to`));
+    }
+    return { pct, reasons };
+  }
+
+  const [heroC, ...restC] = sorted;
+  const hero = heroC.movie;
+  const { pct: heroPct, reasons: heroReasons } = scoreAndReasons(heroC);
+
+  let html = `
+    <div class="hero-pick" style="background:${GENRE_GRADIENT[hero.genres[0]]}">
+      <div class="hero-match">${heroPct}%<span>MATCH</span></div>
+      <div class="content">
+        <div class="hero-eyebrow">editor's pick</div>
+        <h2>${hero.title}</h2>
+        <div class="hero-meta">${hero.director} · ${hero.year} · ${hero.genres.join(', ')}</div>
+        <p class="poster-blurb" style="position:relative;z-index:2;margin:0 0 12px;max-width:420px">${hero.blurb}</p>
+        <div class="hero-reason">${heroReasons.join('')}</div>
+      </div>
+    </div>
+  `;
+
+  html += restC.map((c, i) => {
+    const { pct, reasons } = scoreAndReasons(c);
+    const m = c.movie;
+    return `
+      <div class="list-row" style="animation-delay:${(i + 1) * 0.06}s">
+        <div class="list-swatch" style="background:${GENRE_GRADIENT[m.genres[0]]}"></div>
+        <div class="list-body">
+          <div class="list-top">
+            <h3 class="list-title">${m.title}</h3>
+            <div class="list-match">${pct}%</div>
+          </div>
+          <div class="list-meta">${m.year} · ${m.genres.join(', ')}</div>
+          ${reasons.join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  feed.innerHTML = html;
+}
+
+/* ============================= TOP TABS ============================= */
+function setTopTab(tab){
+  document.getElementById('tab-swipe').classList.toggle('active', tab === 'swipe');
+  document.getElementById('tab-results').classList.toggle('active', tab === 'results');
+  document.getElementById('view-swipe').classList.toggle('active', tab === 'swipe');
+  document.getElementById('view-results').classList.toggle('active', tab === 'results');
+  if (tab === 'results'){ syncResultsLock(); renderResults(); }
+}
+document.getElementById('tab-swipe').addEventListener('click', () => setTopTab('swipe'));
+document.getElementById('tab-results').addEventListener('click', () => setTopTab('results'));
+document.getElementById('go-swipe-btn').addEventListener('click', () => setTopTab('swipe'));
+
+document.querySelectorAll('.mode-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-tabs button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+    document.getElementById('blend-control').style.visibility = currentMode === 'hybrid' ? 'visible' : 'hidden';
+    renderResults();
+  });
+});
+document.getElementById('blend-slider').addEventListener('input', (e) => {
+  blend = Number(e.target.value) / 100;
+  renderResults();
+});
+
+/* ============================= INIT ============================= */
+renderDeck();
+updateProgress();
+</script>
+</body>
+</html>

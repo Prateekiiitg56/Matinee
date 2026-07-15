@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Matinee: Film Recommendations, Explained</title>
+  <meta name="description" content="Rate a handful of films and get honest, explained recommendations powered by content-based and collaborative filtering. No accounts, no data sent anywhere.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,500;1,9..144,600&family=Manrope:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/styles/index.css">
+</head>
+<body>
+
+  <header class="topbar" id="topbar">
+    <div class="wordmark">Matinee</div>
+    <nav class="toptabs">
+      <button id="tab-discover" class="active">Discover</button>
+      <button id="tab-edit">Your Edit<span class="badge" id="rating-badge"></span></button>
+    </nav>
+  </header>
+
+  <main class="wrap">
+
+    <!-- ═══════ MOVEMENT ONE: DISCOVER ═══════ -->
+    <section id="view-discover" class="view active">
+      <div class="masthead">
+        <div class="eyebrow">movement one: build your taste</div>
+        <h1>What do you respond to?</h1>
+        <p>Swipe right for yes, left for pass. About five is enough to start, more sharpens the picture.</p>
+      </div>
+
+      <div class="deck-wrap">
+        <div class="deck" id="deck"></div>
+        <div class="deck-controls">
+          <button class="swipe-btn pass" id="btn-pass" aria-label="Pass">✕</button>
+          <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="progress-bar-fill"></div>
+          </div>
+          <button class="swipe-btn like" id="btn-like" aria-label="Like">♥</button>
+        </div>
+        <div class="hint">drag the card, or use ✕ / ♥ / arrow keys</div>
+      </div>
+    </section>
+
+    <!-- ═══════ MOVEMENT TWO: THE EDIT ═══════ -->
+    <section id="view-edit" class="view">
+
+      <div id="results-locked" class="lock-note">
+        <div class="big">The reel's still loading</div>
+        <p>Rate a few more titles in Discover to unlock your edit recommendations.</p>
+        <button id="go-discover-btn">Back to Discover</button>
+      </div>
+
+      <div id="results-unlocked" style="display:none">
+        <div class="masthead" style="padding-top:44px">
+          <div class="eyebrow">movement two: the edit</div>
+          <h1>Your list, tonight</h1>
+        </div>
+
+        <div class="rec-controls">
+          <div class="mode-tabs" id="mode-tabs">
+            <button data-mode="hybrid" class="active">Hybrid</button>
+            <button data-mode="content">Because you liked</button>
+            <button data-mode="collab">People like you</button>
+          </div>
+          <div class="blend-control" id="blend-control">
+            <span>taste</span>
+            <input type="range" id="blend-slider" min="0" max="100" value="50">
+            <span>kindred</span>
+          </div>
+        </div>
+
+        <div class="edit-feed" id="edit-feed"></div>
+      </div>
+    </section>
+
+    <!-- ═══════ EXPLAINER ═══════ -->
+    <details class="explainer">
+      <summary>How this actually works</summary>
+      <div class="explainer-body">
+        <p><span class="tag content">content-based</span> Every title is tagged with genres. We build a profile from the genres of what you liked (and quietly subtract what you passed on), then find unseen titles whose genre mix is closest to that profile.</p>
+        <p><span class="tag collab">collaborative</span> A panel of 30 sample viewers has its own ratings across this same catalog. We find the ones whose taste overlaps yours, then surface what they rated highly that you haven't seen.</p>
+        <p><b>Hybrid</b> blends the two. The slider sets the weight: full left is pure content-based, full right is pure collaborative.</p>
+      </div>
+    </details>
+
+    <footer class="note">Film data from TMDB (themoviedb.org). Ratings are saved in local storage. <a href="#" id="reset-ratings-link" style="color: var(--brass); margin-left: 8px; text-decoration: underline;">Reset ratings</a></footer>
+  </main>
+
+  <!-- ═══════ MOVIE DETAIL MODAL ═══════ -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal" id="modal">
+      <button class="modal-close" id="modal-close" aria-label="Close">✕</button>
+      <div class="modal-backdrop" id="modal-backdrop"></div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
